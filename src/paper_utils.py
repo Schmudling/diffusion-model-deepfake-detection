@@ -183,7 +183,7 @@ def configure_pandas() -> None:
     """
     import pandas as pd
     from pandas._typing import FilePath, WriteBuffer
-    from pandas.io.formats.format import get_buffer
+    from pandas.io.common import get_handle
 
     # display options
     pd.options.display.max_rows = 100
@@ -194,23 +194,34 @@ def configure_pandas() -> None:
     pd.options.styler.latex.hrules = True
 
     # patch save function to include creating script
-    def patched_save_to_buffer(
-        string: str,
-        buf: FilePath | WriteBuffer[str] | None = None,
-        encoding: str | None = None,
-    ) -> str | None:
-        """
-        Perform serialization. Write to buf or return as string if buf is None.
-        """
-        with get_buffer(buf, encoding=encoding) as f:
-            if buf is not None and str(buf).lower().endswith(".tex"):
-                f.write(f"% {_get_creation_string()}\n")
-            f.write(string)
-            if buf is None:
-                return f.getvalue()
-            return None
+    from pandas.io.common import get_handle
 
-    pd.io.formats.format.save_to_buffer = patched_save_to_buffer
+def patched_save_to_buffer(
+    string: str,
+    buf: FilePath | WriteBuffer[str] | None = None,
+    encoding: str | None = None,
+) -> str | None:
+    """
+    Perform serialization. Write to buf or return as string if buf is None.
+    """
+    if buf is None:
+        from io import StringIO
+        f = StringIO()
+        f.write(string)
+        return f.getvalue()
+
+    handle, created_handles = get_handle(buf, mode="w", encoding=encoding)
+    
+    try:
+        if str(buf).lower().endswith(".tex"):
+            handle.write(f"% {_get_creation_string()}\n")
+        handle.write(string)
+    finally:
+        if created_handles:
+            handle.close()
+
+    return None
+
 
 
 def combine_columns(
