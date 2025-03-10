@@ -105,6 +105,7 @@ class SingleClassImageFolder(ImageFolder):
         class_to_idx: Dict[str, int],
         extensions: Optional[Tuple[str, ...]] = None,
         is_valid_file: Optional[Callable[[str], bool]] = None,
+        allow_empty:bool=True
     ) -> List[Tuple[str, int]]:
         directory = os.path.expanduser(directory)
 
